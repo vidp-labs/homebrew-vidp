@@ -1,14 +1,17 @@
 # Homebrew tap for vidp
 
-Homebrew tap for [vidp](https://github.com/mdopeace/vidp), a minimal
+Homebrew tap for [vidp](https://github.com/vidp-org/vidp), a minimal
 libmpv-based macOS video player.
 
 ## Install
 
 ```sh
-brew tap mdopeace/vidp
+brew tap vidp-org/vidp
 brew install --cask vidp
 ```
+
+Installed from the old `mdopeace` tap? Run `brew untap mdopeace/vidp` first, or
+Homebrew reports the cask in multiple taps.
 
 This installs `vidp.app` into `/Applications`. The `--cask` flag is optional —
 plain `brew install vidp` finds it too.
@@ -18,8 +21,14 @@ formula cannot (formula installs run in a sandbox under `opt/`). No compiler and
 no `brew install mpv` are needed either — the app bundles its own libmpv and
 FFmpeg, so it runs standalone.
 
-Releases are **arm64 only** and about **25 MB**, since libmpv and FFmpeg ship
-inside the bundle. Intel users should build from source instead.
+## Requirements
+
+macOS 26 or newer. Releases are **arm64 only** and about **25 MB**, since libmpv
+and FFmpeg ship inside the bundle. Intel users should build from source instead.
+
+The cask declares `depends_on macos: :tahoe` to match the binary's
+`LSMinimumSystemVersion`, so Homebrew refuses the install on an older macOS
+instead of placing an app that cannot launch.
 
 ## Updating
 
@@ -57,17 +66,17 @@ brew install --cask vidp
 ## In a Brewfile
 
 ```ruby
-tap "mdopeace/vidp"
+tap "vidp-org/vidp"
 cask "vidp"
 ```
 
 ## Maintaining
 
-`version`/`url`/`sha256` in `Casks/vidp.rb` are updated automatically by
-`scripts/release.sh` in the [app repo](https://github.com/mdopeace/vidp) on
-every tagged release, so they normally need no hand-editing. The same commit
-deletes `Formula/` and rewrites `tap_migrations.json`; keep all three together,
-or `brew upgrade` fails with "No available formula".
+`version`/`url`/`sha256` in `Casks/vidp.rb` are updated automatically by the
+release workflow in the [app repo](https://github.com/vidp-org/vidp): every
+release runs `scripts/update-tap.sh`, which writes the cask, deletes `Formula/`
+and rewrites `tap_migrations.json` before opening and merging a PR here. Keep
+those three together, or `brew upgrade` fails with "No available formula".
 
 ## Contributing
 
