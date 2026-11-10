@@ -22,22 +22,49 @@ jobs:
     permissions:
       actions: read
       checks: read
-      contents: write
+      contents: read
       issues: read
-      pull-requests: write
+      pull-requests: read
     steps:
+      - name: Create release App token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          owner: vidp-labs
+          repositories: homebrew-vidp
+          permission-contents: write
+          permission-pull-requests: write
+          permission-checks: read
+          permission-actions: read
+          permission-issues: read
+
       - name: Set up Homebrew
+        id: set-up-homebrew
         uses: Homebrew/actions/setup-homebrew@c262868c096d909fc278daa87ed9772967331ea3 # 2026.11.02.1
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ steps.app-token.outputs.token }}
+          brew-gh-api-token: ${{ steps.app-token.outputs.token }}
 
       - name: Set up git
         id: git_setup
         uses: Homebrew/actions/git-user-config@c262868c096d909fc278daa87ed9772967331ea3 # 2026.11.02.1
 
+      - name: Prepare bottle branch
+        id: branch
+        env:
+          TAP_PATH: ${{ steps.set-up-homebrew.outputs.repository-path }}
+          PULL_REQUEST: ${{ inputs.pull_request }}
+        run: |
+          set -euo pipefail
+          BRANCH="bottle/pr-${PULL_REQUEST}-${GITHUB_RUN_ID}"
+          git -C "$TAP_PATH" switch -c "$BRANCH" origin/main
+          echo "name=$BRANCH" >> "$GITHUB_OUTPUT"
+
       - name: Pull bottles
         env:
-          HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HOMEBREW_GITHUB_API_TOKEN: ${{ steps.app-token.outputs.token }}
           HOMEBREW_GIT_COMMITTER_NAME: ${{ steps.git_setup.outputs.name }}
           HOMEBREW_GIT_COMMITTER_EMAIL: ${{ steps.git_setup.outputs.email }}
           HEAD_SHA: ${{ inputs.head_sha }}
@@ -50,7 +77,54 @@ jobs:
             brew pr-pull --debug --tap="$GITHUB_REPOSITORY" "$PULL_REQUEST"
           fi
 
-      - name: Push commits
+      - name: Check for bottle changes
+        id: changes
+        env:
+          TAP_PATH: ${{ steps.set-up-homebrew.outputs.repository-path }}
+        run: |
+          set -euo pipefail
+          if [ "$(git -C "$TAP_PATH" rev-list --count origin/main..HEAD)" -gt 0 ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Push bottle branch
+        if: steps.changes.outputs.changed == 'true'
         uses: Homebrew/actions/git-try-push@c262868c096d909fc278daa87ed9772967331ea3 # 2026.11.02.1
         with:
-          branch: main
+          token: ${{ steps.app-token.outputs.token }}
+          directory: ${{ steps.set-up-homebrew.outputs.repository-path }}
+          remote: origin
+          branch: ${{ steps.branch.outputs.name }}
+          tries: 10
+
+      - name: Create and merge bottle PR
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          BRANCH: ${{ steps.branch.outputs.name }}
+          PULL_REQUEST: ${{ inputs.pull_request }}
+          TAP_PATH: ${{ steps.set-up-homebrew.outputs.repository-path }}
+        run: |
+          set -euo pipefail
+          cd "$TAP_PATH"
+          PR_URL=$(gh pr create --base main --head "$BRANCH" \
+            --title "Update bottle for #$PULL_REQUEST" \
+            --body "Updates the bottle metadata for upstream pull request #$PULL_REQUEST.")
+          gh pr merge "$PR_URL" --auto --merge --delete-branch
+
+          for attempt in {1..60}; do
+            STATE=$(gh pr view "$PR_URL" --json state --jq '.state')
+            if [ "$STATE" = "MERGED" ]; then
+              exit 0
+            elif [ "$STATE" = "CLOSED" ]; then
+              echo "::error::Bottle PR was closed without merging"
+              exit 1
+            fi
+            echo "Waiting for bottle PR CI and auto-merge (attempt $attempt/60)"
+            sleep 30
+          done
+
+          echo "::error::Bottle PR did not merge after waiting for CI"
+          exit 1
