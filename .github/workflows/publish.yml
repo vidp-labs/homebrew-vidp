@@ -112,19 +112,27 @@ jobs:
           PR_URL=$(gh pr create --base main --head "$BRANCH" \
             --title "Update bottle for #$PULL_REQUEST" \
             --body "Updates the bottle metadata for upstream pull request #$PULL_REQUEST.")
-          gh pr merge "$PR_URL" --auto --merge --delete-branch
+          gh pr merge "$PR_URL" --auto --merge
 
           for attempt in {1..60}; do
             STATE=$(gh pr view "$PR_URL" --json state --jq '.state')
             if [ "$STATE" = "MERGED" ]; then
-              exit 0
+              break
             elif [ "$STATE" = "CLOSED" ]; then
-              echo "::error::Bottle PR was closed without merging"
+              echo "::error::Bottle PR was closed without merging: $PR_URL"
               exit 1
             fi
             echo "Waiting for bottle PR CI and auto-merge (attempt $attempt/60)"
             sleep 30
           done
 
-          echo "::error::Bottle PR did not merge after waiting for CI"
-          exit 1
+          STATE=$(gh pr view "$PR_URL" --json state --jq '.state')
+          [ "$STATE" = "MERGED" ] || {
+            echo "::error::Bottle PR did not merge after waiting for CI: $PR_URL"
+            exit 1
+          }
+
+          # Auto-merge ignores --delete-branch, so remove the head ref after merge.
+          if gh api "repos/vidp-labs/homebrew-vidp/git/ref/heads/$BRANCH" >/dev/null 2>&1; then
+            gh api --method DELETE "repos/vidp-labs/homebrew-vidp/git/refs/heads/$BRANCH" || true
+          fi
