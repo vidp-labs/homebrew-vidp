@@ -32,7 +32,7 @@ jobs:
         with:
           app-id: ${{ secrets.RELEASE_APP_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
-          owner: vidp-labs
+          owner: vidplabs
           repositories: homebrew-vidp
           permission-contents: write
           permission-pull-requests: write
@@ -133,6 +133,6 @@ jobs:
           }
 
           # Auto-merge ignores --delete-branch, so remove the head ref after merge.
-          if gh api "repos/vidp-labs/homebrew-vidp/git/ref/heads/$BRANCH" >/dev/null 2>&1; then
-            gh api --method DELETE "repos/vidp-labs/homebrew-vidp/git/refs/heads/$BRANCH" || true
+          if gh api "repos/vidplabs/homebrew-vidp/git/ref/heads/$BRANCH" >/dev/null 2>&1; then
+            gh api --method DELETE "repos/vidplabs/homebrew-vidp/git/refs/heads/$BRANCH" || true
           fi

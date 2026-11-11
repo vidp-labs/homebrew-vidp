@@ -1,12 +1,12 @@
 # Homebrew tap for vidp
 
-Homebrew tap for [vidp](https://github.com/vidp-labs/vidp), a minimal
+Homebrew tap for [vidp](https://github.com/vidplabs/vidp), a minimal
 libmpv-based macOS video player.
 
 ## Install
 
 ```sh
-brew tap vidp-labs/vidp
+brew tap vidplabs/vidp
 brew install --cask vidp
 ```
 
@@ -66,14 +66,14 @@ brew install --cask vidp
 ## In a Brewfile
 
 ```ruby
-tap "vidp-labs/vidp"
+tap "vidplabs/vidp"
 cask "vidp"
 ```
 
 ## Maintaining
 
 `version`/`url`/`sha256` in `Casks/vidp.rb` are updated automatically by the
-release workflow in the [app repo](https://github.com/vidp-labs/vidp): every
+release workflow in the [app repo](https://github.com/vidplabs/vidp): every
 release runs `scripts/update-tap.sh`, which writes the cask, deletes `Formula/`
 and rewrites `tap_migrations.json` before opening and merging a PR here. Keep
 those three together, or `brew upgrade` fails with "No available formula".
