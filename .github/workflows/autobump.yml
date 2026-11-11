@@ -30,7 +30,7 @@ jobs:
         with:
           app-id: ${{ secrets.RELEASE_APP_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
-          owner: vidp-labs
+          owner: vidplabs
           repositories: homebrew-vidp
           permission-contents: write
           permission-pull-requests: write
